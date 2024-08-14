@@ -36,10 +36,12 @@ func SelectRecord(domain string, subdomain string) *dnspod.RecordListItem {
 	// 返回的resp是一个DescribeRecordListResponse的实例，与请求对象对应
 	response, err := client.DescribeRecordList(request)
 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf("An API error has returned: %s", err)
+		fmt.Printf("API client.DescribeRecordList error has returned: %s", err)
+		return nil
 	}
 	if err != nil {
 		fmt.Printf("client.DescribeRecordList failed, err: %s", err)
+		return nil
 	}
 	if len(response.Response.RecordList) > 0 {
 		return response.Response.RecordList[0]
@@ -62,11 +64,11 @@ func UpdateRecord(domain string, subdomain string, ipv6 string, recordId uint64)
 	// 返回的resp是一个ModifyRecordResponse的实例，与请求对象对应
 	response, err := client.ModifyRecord(request)
 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf("An API error has returned: %s", err)
+		fmt.Printf("API client.ModifyRecord error has returned: %s", err)
 		return
 	}
 	if err != nil {
-		panic(err)
+		return
 	}
 	// 输出json格式的字符串回包
 	fmt.Println(response.ToJsonString())
