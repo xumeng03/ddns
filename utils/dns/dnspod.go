@@ -36,11 +36,11 @@ func SelectRecord(domain string, subdomain string) *dnspod.RecordListItem {
 	// 返回的resp是一个DescribeRecordListResponse的实例，与请求对象对应
 	response, err := client.DescribeRecordList(request)
 	if _, ok := err.(*errors.TencentCloudSDKError); ok {
-		fmt.Printf("API client.DescribeRecordList error has returned: %s", err)
+		// fmt.Printf("API client.DescribeRecordList error has returned: %s\n", err)
 		return nil
 	}
 	if err != nil {
-		fmt.Printf("client.DescribeRecordList failed, err: %s", err)
+		// fmt.Printf("client.DescribeRecordList failed, err: %s\n", err)
 		return nil
 	}
 	if len(response.Response.RecordList) > 0 {
