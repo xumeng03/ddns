@@ -49,14 +49,14 @@ func SelectRecord(domain string, subdomain string) *dnspod.RecordListItem {
 	return nil
 }
 
-func UpdateRecord(domain string, subdomain string, ipv6 string, recordId uint64) {
+func UpdateRecord(domain string, subdomain string, recordType string, ipv6 string, recordId uint64) {
 
 	// 实例化一个请求对象,每个接口都会对应一个request对象
 	request := dnspod.NewModifyRecordRequest()
 
 	request.Domain = common.StringPtr(domain)
 	request.SubDomain = common.StringPtr(subdomain)
-	request.RecordType = common.StringPtr("AAAA")
+	request.RecordType = common.StringPtr(recordType)
 	request.RecordLine = common.StringPtr("默认")
 	request.Value = common.StringPtr(ipv6)
 	request.RecordId = common.Uint64Ptr(recordId)

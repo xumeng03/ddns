@@ -1,6 +1,6 @@
-package effective
+package util
 
-func EffectiveString(strs ...string) bool {
+func Required(strs ...string) bool {
 	for _, str := range strs {
 		if str == "" {
 			return false

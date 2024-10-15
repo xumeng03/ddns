@@ -2,8 +2,7 @@ package main
 
 import (
 	"ddns/utils/dns"
-	"ddns/utils/effective"
-	"ddns/utils/ip"
+	"ddns/utils/util"
 	"flag"
 	"fmt"
 	dnspod "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/dnspod/v20210323"
@@ -15,19 +14,27 @@ var secretId = flag.String("secretId", "", "SecretId")
 var secretKey = flag.String("secretKey", "", "SecretKey")
 var domain = flag.String("domain", "", "Domain")
 var subdomain = flag.String("subdomain", "", "Subdomain")
+var source = flag.String("source", "netinterface", "Source")
+var ipv4 = flag.Bool("ipv4", true, "Ipv4")
+var ipv6 = flag.Bool("ipv6", false, "Ipv6")
 var interval = flag.Int64("interval", 30, "Interval")
+
 var subdomains []string
 
 func main() {
 	// 解析命令行参数
 	flag.Parse()
-	if !effective.EffectiveString(*secretId, *secretKey, *domain, *subdomain) {
+	if !util.Required(*secretId, *secretKey, *domain, *subdomain) {
 		fmt.Println("secretId and secretKey and domain and subdomain are required!")
+		return
+	}
+	if !util.Mutex(*ipv4, *ipv6) {
+		fmt.Println("IPv4 and ipv6 cannot be turned on at the same time!")
 		return
 	}
 	subdomains = strings.Split(*subdomain, ",")
 
-	// 初始化 dnspod
+	// 初始化 dns 配置
 	dns.InitClient(*secretId, *secretKey)
 	// 启动先触发一次
 	dnns()
@@ -44,19 +51,6 @@ func main() {
 	}
 }
 
-func EffectiveRecordAddress(ipv6NetInterfaces []ip.NetInterface, address string) bool {
-	f := false
-	// 遍历所有 ipv6 地址，查看是否有与 dns 解析一致的地址
-	for _, netInterface := range ipv6NetInterfaces {
-		for _, addr := range netInterface.Address {
-			if addr == address {
-				f = true
-			}
-		}
-	}
-	return f
-}
-
 func dnns() {
 	fmt.Println("Execution time: ", time.Now())
 	// 查询 dns 记录
@@ -69,19 +63,56 @@ func dnns() {
 		}
 		records = append(records, record)
 	}
-	// 获取当前 ipv6 地址
-	ipv6NetInterfaces, err := ip.Ipv6()
-	if err != nil {
-		fmt.Println("Obtain ipv6 failed!", err)
-		return
+	fmt.Println(util.WriteValueAsString(records))
+	// 获取当前 ip 地址
+	var ipInterfaces []util.IPInterface
+	var err error
+	var recordType string
+	if *ipv4 {
+		recordType = "A"
+		if *source == "netinterface" {
+			ipInterfaces, err = util.NetInterfaceIPv4()
+			if err != nil {
+				fmt.Printf("Failed to obtain ipv4!\n")
+				return
+			}
+		} else if *source == "api" {
+			ipInterfaces, err = util.ApiIPv4()
+			if err != nil {
+				fmt.Printf("Failed to obtain ipv4!\n")
+				return
+			}
+		}
+	} else if *ipv6 {
+		recordType = "AAAA"
+		if *source == "netinterface" {
+			ipInterfaces, err = util.NetInterfaceIPv6()
+			if err != nil {
+				fmt.Printf("Failed to obtain ipv6!\n")
+				return
+			}
+		} else if *source == "api" {
+			ipInterfaces, err = util.ApiIPv6()
+			if err != nil {
+				fmt.Printf("Failed to obtain ipv6!\n")
+				return
+			}
+		}
 	}
-	for _, record := range records {
-		// 如果所有的 ipv6 地址与 dns 解析的地址都不一致，将设备中国第一个 ipv6 地址更新到 dns 解析中，并更新记录值
-		if !EffectiveRecordAddress(ipv6NetInterfaces, *record.Value) {
-			fmt.Printf("The ipv6 address of record '%s' needs to be updated to '%s'\n", *record.Name, ipv6NetInterfaces[0].Address[0])
-			dns.UpdateRecord(*domain, *record.Name, ipv6NetInterfaces[0].Address[0], *record.RecordId)
-		} else {
-			fmt.Printf("The ipv6 address of record '%s' does not need to be updated\n", *record.Name)
+	fmt.Println(util.WriteValueAsString(ipInterfaces))
+	for i := range records {
+		record := records[i]
+		f := false
+		for _, ipInterface := range ipInterfaces {
+			if ipInterface.Address == *record.Value {
+				fmt.Printf("The ip address of record '%s' does not need to be updated\n", *record.Name)
+				f = true
+				break
+			}
+		}
+		if !f {
+			fmt.Printf("The ip address of record '%s' need to be updated\n", *record.Name)
+			dns.UpdateRecord(*domain, *record.Name, recordType, ipInterfaces[0].Address, *record.RecordId)
 		}
 	}
 }
